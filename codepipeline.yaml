@@ -219,8 +219,8 @@ Resources:
                   ProjectName: !Ref CodeBuildProjectBuildAndPackage
                 InputArtifacts:
                   - Name: SourceCodeAsZip
-                OutputArtifacts:
-                  - Name: BuildArtifactAsZip
+                #OutputArtifacts:
+                #  - Name: BuildArtifactAsZip
           - !Ref AWS::NoValue
 
         - !If
@@ -246,8 +246,7 @@ Resources:
                       {"name": "ENV_IMAGE_REPOSITORY", "value": "${TestingImageRepository}"}
                     ]
                 InputArtifacts:
-		  - Name: SourceCodeAsZip
-                  #- Name: BuildArtifactAsZip
+                  - Name: SourceCodeAsZip
                 RunOrder: 1
               # Uncomment the following step for running the integration tests
               # - Name: IntegrationTest
