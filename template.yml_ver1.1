@@ -1,0 +1,354 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform:
+  - AWS::Serverless-2016-10-31
+
+# Template Information
+
+Description: "Weasel Unicorn SAM Demo"
+
+# Template Parameters
+
+Globals:
+  Function:
+    Timeout: 20
+  Api:
+    TracingEnabled: true
+    Cors:
+      #AllowMethods: "'GET,POST,OPTIONS'"
+      AllowMethods: "'POST,OPTIONS'"
+      AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+
+Parameters:
+  DomainName:
+    Type: String
+    Description: "The domain name of website"
+    Default: "pete.weasel.fi"
+  HostedZoneId:
+    Type: String
+    Description: "The Route53 hosted zone ID used for the domain"
+    Default: "Z049130116GN3MTGEN1CT"
+  AcmCertificateArn:
+    Type: String
+    Description: "The certificate arn for the domain name provided"
+    Default: "arn:aws:acm:us-east-1:436062882310:certificate/7084dc9d-6359-45ea-a75f-a008188119c9"
+  IndexDocument:
+    Type: String
+    Description: "The index document"
+    Default: "index.html"
+  ErrorDocument:
+    Type: String
+    Description: "The error document, ignored in SPA mode"
+    Default: "404.html"
+  RewriteMode:
+    Type: String
+    Description: "The request rewrite behaviour type"
+    Default: "STATIC"
+    AllowedValues:
+      - STATIC
+      - SPA
+  CloudFrontPriceClass:
+    Type: String
+    Description: "The price class for CloudFront distribution"
+    Default: "PriceClass_100"
+    AllowedValues:
+      - PriceClass_100
+      - PriceClass_200
+      - PriceClass_All
+
+
+# Resources create conditions
+
+Conditions:
+  IsStaticMode: !Equals [!Ref RewriteMode, "STATIC"]
+  IsSPAMode: !Equals [!Ref RewriteMode, "SPA"]
+
+# Template Resources
+
+Resources:
+##########################################################################
+#   Route53                                                              #
+##########################################################################  
+  DnsRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref DomainName
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt Distribution.DomainName
+        HostedZoneId: "Z2FDTNDATAQYW2" # CloudFront
+
+##########################################################################
+#   S3                                                                   #
+##########################################################################  
+  Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref DomainName
+      AccessControl: Private
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref Bucket
+      PolicyDocument: 
+        Statement: 
+          - Effect: "Allow"
+            Action: "s3:GetObject"
+            Resource: !Sub "arn:aws:s3:::${Bucket}/*"
+            Principal: 
+              AWS: !Sub 'arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${OriginAccessIdentity}'
+
+##########################################################################
+#   CloudFront                                                           #
+##########################################################################
+  OriginAccessIdentity:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Ref AWS::StackName
+
+  RewriteRequestStaticFunction:
+    Condition: IsStaticMode
+    Type: AWS::CloudFront::Function
+    Properties: 
+      Name: !Sub "${AWS::StackName}-req-static"
+      AutoPublish: true
+      FunctionCode: !Sub |
+        function handler(event) {
+          var request = event.request;
+          var uri = request.uri
+          if (uri.endsWith('/')) {
+              request.uri += '${IndexDocument}';
+          } else if (!uri.includes('.')) {
+              request.uri += '/${IndexDocument}';
+          }
+          return request;
+        }
+      FunctionConfig: 
+        Comment: !Sub "rewrite all paths to /${IndexDocument}"
+        Runtime: cloudfront-js-1.0
+
+  RewriteRequestSpaFunction:
+    Condition: IsSPAMode
+    Type: AWS::CloudFront::Function
+    Properties: 
+      Name: !Sub "${AWS::StackName}-req-spa"
+      AutoPublish: true
+      FunctionCode: !Sub |
+        function handler(event) {
+          var request = event.request;
+          var uri = request.uri
+          if (uri.includes('.') && !uri.endsWith('.html')) {
+              return request;
+          }
+          request.uri = '/${IndexDocument}';
+          return request;
+        }
+      FunctionConfig: 
+        Comment: !Sub "rewrite sub-directory path with trailing /${IndexDocument}"
+        Runtime: cloudfront-js-1.0
+
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: 'true'
+        Comment: !Ref AWS::StackName
+        DefaultRootObject: !Ref IndexDocument
+        HttpVersion: http2
+        CustomErrorResponses:
+          - ErrorCachingMinTTL: 86400
+            ErrorCode: 403 # object not found in bucket
+            ResponseCode: !If [IsStaticMode, 404, 200]
+            ResponsePagePath: !If [IsStaticMode, !Sub "/${ErrorDocument}", !Sub "/${IndexDocument}"]
+        Origins:
+          - DomainName: !Sub "${Bucket}.s3.${AWS::Region}.amazonaws.com"
+            Id: bucketOrigin
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${OriginAccessIdentity}
+        DefaultCacheBehavior:
+          Compress: 'true'
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          TargetOriginId: bucketOrigin
+          ForwardedValues:
+            QueryString: 'false'
+            Cookies:
+              Forward: none
+          ViewerProtocolPolicy: redirect-to-https
+          FunctionAssociations:
+            - EventType: viewer-request
+              FunctionARN: !If [IsStaticMode, !GetAtt RewriteRequestStaticFunction.FunctionMetadata.FunctionARN, !GetAtt RewriteRequestSpaFunction.FunctionMetadata.FunctionARN]
+        PriceClass: !Ref CloudFrontPriceClass
+        Aliases:
+          - !Ref DomainName
+        ViewerCertificate:
+          AcmCertificateArn: !Ref AcmCertificateArn
+          SslSupportMethod: sni-only
+
+##########################################################################
+#   Cognito UserPool                                                     #
+##########################################################################
+  CognitoDemoUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub "${AWS::StackName}-UserPool"
+      AutoVerifiedAttributes:
+        - email
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
+      VerificationMessageTemplate:
+        DefaultEmailOption: CONFIRM_WITH_CODE
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: false
+      EmailConfiguration:
+        EmailSendingAccount: COGNITO_DEFAULT
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+          RequireUppercase: true
+          TemporaryPasswordValidityDays: 7
+      Schema:
+        - AttributeDataType: String
+          Name: sub
+          DeveloperOnlyAttribute: false
+          Mutable: false
+          Required: true
+          StringAttributeConstraints:
+            MinLength: 1
+            MaxLength: 2048
+        - AttributeDataType: String
+          Name: email
+          DeveloperOnlyAttribute: false
+          Mutable: false
+          Required: true
+          StringAttributeConstraints:
+            MinLength: 0
+            MaxLength: 2048
+        - AttributeDataType: Boolean
+          Name: email_verified
+          DeveloperOnlyAttribute: false
+          Mutable: true
+          Required: false
+      MfaConfiguration: 'OFF'
+      UsernameConfiguration:
+        CaseSensitive: false
+      #UsernameAttributes:
+      #  - email
+      AliasAttributes:
+        - preferred_username
+  CognitoDemoUserPoolAppClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId: !Ref CognitoDemoUserPool
+      ClientName: !Sub "${AWS::StackName}-UserPoolClient"
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_USER_SRP_AUTH
+      TokenValidityUnits:
+        RefreshToken: days
+        AccessToken: days
+        IdToken: days
+      RefreshTokenValidity: 63
+      AccessTokenValidity: 1
+      IdTokenValidity: 1
+      PreventUserExistenceErrors: ENABLED
+
+##########################################################################
+#   DynamoDB                                                            #
+##########################################################################
+  DynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    #DeletionPolicy: Retain
+    Properties:
+      TableName: Rides
+      AttributeDefinitions:
+        - AttributeName: RideId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: RideId
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+
+##########################################################################
+#   Lambda Function                                                      #
+##########################################################################
+
+  LambdaWriteToDynamoDB:
+    # A function that writes to a DynamoDB table on a schedule
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      FunctionName: RequestUnicorn
+      Handler: index.handler
+      Runtime: nodejs16.x
+      #CodeUri: s3://weasel-sam-test/index.zip
+      CodeUri: lambda/
+      Description: A function that writes to a DynamoDB table on a schedule
+      MemorySize: 128
+      Timeout: 120
+      Policies:
+      # Read more about SAM policy templates here
+      # https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-policy-templates.html
+       - DynamoDBCrudPolicy:
+          TableName: !Ref DynamoDBTable
+      Events:
+        ApiGateway:
+          Type: Api
+          Properties:
+            Path: /ride
+            Method: POST
+            RestApiId: !Ref ApiGateway
+            Auth:
+              Authorizer: CognitoAuth
+
+##########################################################################
+#   ApiGateway                                                           #
+##########################################################################
+  ApiGateway:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub "${AWS::StackName}-ApiGateway"
+      StageName: prod
+      Auth:
+        Authorizers:
+          CognitoAuth:
+            UserPoolArn: !GetAtt CognitoDemoUserPool.Arn
+ 
+##########################################################################
+# Template Outputs                                                       #
+##########################################################################
+Outputs:
+  S3BucketName:
+    Description: "The S3 bucket name where HTML files need to be uploaded"
+    Value: !Ref Bucket
+  CloudFrontDistribution:
+    Description: "The CloudFront distribution in front of the S3 bucket"
+    Value: !Ref Distribution
+  WebsiteUrl:
+    Description: "The website URL"
+    Value: !Sub "https://${DomainName}/"
+  CognitoPoolID:
+    Description: "CognitoUserPoolID"
+    Value: !Ref CognitoDemoUserPool
+  CognitoPoolAppID:
+    Description: "CognitoPoolAppClientID"
+    Value: !Ref CognitoDemoUserPoolAppClient
+  ApiGataway:
+    Description: "API Prod stage endpoint"
+    Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/prod/"
