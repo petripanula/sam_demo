@@ -45,6 +45,9 @@ Parameters:
   TestingStackName:
     Type: String
     Default: "sam-app-dev"
+  WeaselExtAdminRole:
+    Type: String
+    Default: "arn:aws:iam::436062882310:role/WeaselExtAdmin"
   TestingPipelineExecutionRole:
     Type: String
     Default: "arn:aws:iam::436062882310:role/aws-sam-cli-managed-dev-pipel-PipelineExecutionRole-gm8kYY2xaMCt"
@@ -241,6 +244,7 @@ Resources:
                       {"name": "ENV_REGION", "value": "${TestingRegion}"},
                       {"name": "ENV_STACK_NAME", "value": "${TestingStackName}"},
                       {"name": "ENV_PIPELINE_EXECUTION_ROLE", "value": "${TestingPipelineExecutionRole}"},
+		      {"name": "WEASELEXTADMINROLE", "value": "${WeaselExtAdminRole}"},
                       {"name": "ENV_CLOUDFORMATION_EXECUTION_ROLE", "value": "${TestingCloudFormationExecutionRole}"},
                       {"name": "ENV_BUCKET", "value": "${TestingArtifactBucket}"},
                       {"name": "ENV_IMAGE_REPOSITORY", "value": "${TestingImageRepository}"}
