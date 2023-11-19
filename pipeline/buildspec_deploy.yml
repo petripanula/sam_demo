@@ -8,7 +8,7 @@ phases:
       - pip install --upgrade awscli aws-sam-cli
   build:
     commands:
-      - . ./assume-role.sh ${ENV_CLOUDFORMATION_EXECUTION_ROLE} deploy
+      - . ./assume-role.sh ${ENV_PIPELINE_EXECUTION_ROLE} deploy
       - sam deploy --capabilities CAPABILITY_IAM --resolve-s3 --stack-name ${ENV_STACK_NAME}
       #- sam deploy --stack-name ${ENV_STACK_NAME}
       #              --template ${ENV_TEMPLATE}
