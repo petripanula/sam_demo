@@ -277,7 +277,7 @@ Resources:
                   Owner: AWS
                   Provider: Manual
                   Version: "1"
-                 RunOrder: 1
+                  RunOrder: 1
               - Name: DeployProd
                 ActionTypeId:
                   Category: Build
