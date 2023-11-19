@@ -246,7 +246,7 @@ Resources:
                       {"name": "ENV_IMAGE_REPOSITORY", "value": "${TestingImageRepository}"}
                     ]
                 InputArtifacts:
-	          - Name: SourceCodeAsZip
+		  - Name: SourceCodeAsZip
                   #- Name: BuildArtifactAsZip
                 RunOrder: 1
               # Uncomment the following step for running the integration tests
