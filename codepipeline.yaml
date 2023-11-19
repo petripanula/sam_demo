@@ -294,7 +294,7 @@ Resources:
                       {"name": "ENV_IMAGE_REPOSITORY", "value": "${ProdImageRepository}"}
                     ]
                 InputArtifacts:
-                  - Name: BuildArtifactAsZip
+                  - Name: SourceCodeAsZip
           - !Ref AWS::NoValue
 
   PipelineArtifactsBucket:
