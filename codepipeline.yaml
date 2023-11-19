@@ -238,7 +238,6 @@ Resources:
                   Version: "1"
                 Configuration:
                   ProjectName: !Ref CodeBuildProjectDeploy
-                  RoleArn: !GetAtt PipelineStackCloudFormationExecutionRole.Arn
                   EnvironmentVariables: !Sub |
                     [
                       {"name": "ENV_TEMPLATE", "value": "packaged-test.yaml"},
