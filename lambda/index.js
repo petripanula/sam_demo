@@ -78,8 +78,9 @@ exports.handler = (event, context, callback) => {
 // this ride (possibly invoking another Lambda function as a microservice.)
 // For simplicity, we'll just pick a unicorn at random.
 function findUnicorn(pickupLocation) {
-    console.log('Finding unicorn for ', pickupLocation.Latitude, ', ', pickupLocation.Longitude);
-    return fleet[Math.floor(Math.random() * fleet.length)];
+    int randnbr = Math.floor(Math.random() * fleet.length);
+    console.log('Finding unicorn for ', pickupLocation.Latitude, ', ', pickupLocation.Longitude, ' rand: ', randnbr);
+    return fleet[randnbr];
 }
 
 function recordRide(rideId, username, unicorn) {
