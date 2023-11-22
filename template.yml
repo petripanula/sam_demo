@@ -19,6 +19,14 @@ Globals:
       AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
 
 Parameters:
+  MyDeployEnvironment:
+    Type: String
+    Description: "Environment - test,prod,etc..."
+    #Default: "test"
+    AllowedValues:
+      - test
+      - dev
+      - prod
   DomainName:
     Type: String
     Description: "The domain name of website"
@@ -30,7 +38,7 @@ Parameters:
   AcmCertificateArn:
     Type: String
     Description: "The certificate arn for the domain name provided"
-    Default: "arn:aws:acm:us-east-1:436062882310:certificate/7084dc9d-6359-45ea-a75f-a008188119c9"
+    Default: "arn:aws:acm:us-east-1:436062882310:certificate/2729133c-234a-4947-951e-d365d35a31b6"
   IndexDocument:
     Type: String
     Description: "The index document"
@@ -72,7 +80,7 @@ Resources:
     Type: AWS::Route53::RecordSet
     Properties:
       HostedZoneId: !Ref HostedZoneId
-      Name: !Ref DomainName
+      Name: !Sub "${MyDeployEnvironment}.${DomainName}"
       Type: A
       AliasTarget:
         DNSName: !GetAtt Distribution.DomainName
@@ -84,7 +92,7 @@ Resources:
   Bucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Ref DomainName
+      BucketName: !Sub "${AWS::StackName}"
       AccessControl: Private
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
@@ -159,7 +167,7 @@ Resources:
     Properties:
       DistributionConfig:
         Enabled: 'true'
-        Comment: !Ref AWS::StackName
+        Comment: !Sub "${MyDeployEnvironment}.${DomainName}"
         DefaultRootObject: !Ref IndexDocument
         HttpVersion: http2
         CustomErrorResponses:
@@ -189,7 +197,7 @@ Resources:
               FunctionARN: !If [IsStaticMode, !GetAtt RewriteRequestStaticFunction.FunctionMetadata.FunctionARN, !GetAtt RewriteRequestSpaFunction.FunctionMetadata.FunctionARN]
         PriceClass: !Ref CloudFrontPriceClass
         Aliases:
-          - !Ref DomainName
+          - !Sub "${MyDeployEnvironment}.${DomainName}"
         ViewerCertificate:
           AcmCertificateArn: !Ref AcmCertificateArn
           SslSupportMethod: sni-only
@@ -254,7 +262,7 @@ Resources:
     Type: AWS::Cognito::UserPoolClient
     Properties:
       UserPoolId: !Ref CognitoDemoUserPool
-      ClientName: !Sub "${AWS::StackName}-UserPoolClient"
+      ClientName: !Sub "${AWS::StackName}-UserPool-UserPoolClient"
       GenerateSecret: false
       ExplicitAuthFlows:
         - ALLOW_REFRESH_TOKEN_AUTH
@@ -275,7 +283,7 @@ Resources:
     Type: AWS::DynamoDB::Table
     #DeletionPolicy: Retain
     Properties:
-      TableName: Rides
+      TableName: !Sub "${AWS::StackName}"
       AttributeDefinitions:
         - AttributeName: RideId
           AttributeType: S
@@ -294,11 +302,10 @@ Resources:
     # A function that writes to a DynamoDB table on a schedule
     Type: 'AWS::Serverless::Function'
     Properties:
-      FunctionName: RequestUnicorn
+      FunctionName: !Sub "${AWS::StackName}-RequestUnicorn"
       Handler: index.handler
       Runtime: nodejs16.x
-      #CodeUri: s3://weasel-sam-test/index.zip
-      CodeUri: lambda/
+      CodeUri: lambda2/
       Description: A function that writes to a DynamoDB table on a schedule
       MemorySize: 128
       Timeout: 120
@@ -307,6 +314,9 @@ Resources:
       # https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-policy-templates.html
        - DynamoDBCrudPolicy:
           TableName: !Ref DynamoDBTable
+      Environment:
+        Variables: 
+          TABLENAME: !Sub "${AWS::StackName}"
       Events:
         ApiGateway:
           Type: Api
@@ -324,7 +334,7 @@ Resources:
     Type: AWS::Serverless::Api
     Properties:
       Name: !Sub "${AWS::StackName}-ApiGateway"
-      StageName: prod
+      StageName: !Ref MyDeployEnvironment
       Auth:
         Authorizers:
           CognitoAuth:
@@ -342,7 +352,7 @@ Outputs:
     Value: !Ref Distribution
   WebsiteUrl:
     Description: "The website URL"
-    Value: !Sub "https://${DomainName}/"
+    Value: !Sub "https://${MyDeployEnvironment}.${DomainName}/"
   CognitoPoolID:
     Description: "CognitoUserPoolID"
     Value: !Ref CognitoDemoUserPool
@@ -350,5 +360,5 @@ Outputs:
     Description: "CognitoPoolAppClientID"
     Value: !Ref CognitoDemoUserPoolAppClient
   ApiGataway:
-    Description: "API Prod stage endpoint"
-    Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/prod/"
+    Description: "API Prod/Test/etc stage endpoint"
+    Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${MyDeployEnvironment}/"

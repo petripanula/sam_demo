@@ -240,6 +240,7 @@ Resources:
                   ProjectName: !Ref CodeBuildProjectDeploy
                   EnvironmentVariables: !Sub |
                     [
+		      {"name": "ENV_ENV", "value": "test"},
                       {"name": "ENV_TEMPLATE", "value": "packaged-test.yaml"},
                       {"name": "ENV_REGION", "value": "${TestingRegion}"},
                       {"name": "ENV_STACK_NAME", "value": "${TestingStackName}"},
@@ -278,7 +279,7 @@ Resources:
                   Provider: Manual
                   Version: "1"
                 RunOrder: 1
-              - Name: DeployProd
+              - Name: DeployDev
                 ActionTypeId:
                   Category: Build
                   Owner: AWS
@@ -289,10 +290,12 @@ Resources:
                   ProjectName: !Ref CodeBuildProjectDeploy
                   EnvironmentVariables: !Sub |
                     [
+		      {"name": "ENV_ENV", "value": "dev"},
                       {"name": "ENV_TEMPLATE", "value": "packaged-prod.yaml"},
                       {"name": "ENV_REGION", "value": "${ProdRegion}"},
                       {"name": "ENV_STACK_NAME", "value": "${ProdStackName}"},
-                      {"name": "ENV_PIPELINE_EXECUTION_ROLE", "value": "${ProdPipelineExecutionRole}"},
+                      #{"name": "ENV_PIPELINE_EXECUTION_ROLE", "value": "${ProdPipelineExecutionRole}"},
+		      {"name": "ENV_PIPELINE_EXECUTION_ROLE", "value": "${TestingPipelineExecutionRole}"},
                       {"name": "ENV_CLOUDFORMATION_EXECUTION_ROLE", "value": "${ProdCloudFormationExecutionExeRole}"},
                       {"name": "ENV_BUCKET", "value": "${ProdArtifactBucket}"},
                       {"name": "ENV_IMAGE_REPOSITORY", "value": "${ProdImageRepository}"}
