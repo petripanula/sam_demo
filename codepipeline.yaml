@@ -44,7 +44,7 @@ Parameters:
     Default: "eu-north-1"
   TestingStackName:
     Type: String
-    Default: "sam-app-dev"
+    Default: "unicornride-app-test"
   WeaselExtAdminRole:
     Type: String
     Default: "arn:aws:iam::436062882310:role/WeaselExtAdmin"
@@ -66,9 +66,12 @@ Parameters:
   ProdRegion:
     Type: String
     Default: "eu-north-1"
+  DevStackName:
+    Type: String
+    Default: "unicornride-app-dev"
   ProdStackName:
     Type: String
-    Default: "sam-app-prod"
+    Default: "unicornride-app-prod"
   ProdPipelineExecutionRole:
     Type: String
     Default: "arn:aws:iam::436062882310:role/aws-sam-cli-managed-prod-pipe-PipelineExecutionRole-ngnu6oLzdzI7"
@@ -293,7 +296,7 @@ Resources:
                       {"name": "ENV_ENV", "value": "dev"},
                       {"name": "ENV_TEMPLATE", "value": "packaged-prod.yaml"},
                       {"name": "ENV_REGION", "value": "${ProdRegion}"},
-                      {"name": "ENV_STACK_NAME", "value": "${ProdStackName}"},
+                      {"name": "ENV_STACK_NAME", "value": "${DevStackName}"},
                       {"name": "ENV_PIPELINE_EXECUTION_ROLE", "value": "${TestingPipelineExecutionRole}"},
                       {"name": "ENV_CLOUDFORMATION_EXECUTION_ROLE", "value": "${ProdCloudFormationExecutionExeRole}"},
                       {"name": "ENV_BUCKET", "value": "${ProdArtifactBucket}"},
