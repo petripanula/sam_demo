@@ -269,7 +269,7 @@ Resources:
 
         - !If
           - IsMainBranchPipeline
-          - Name: DeployProd
+          - Name: DeployDev
             Actions:
               # uncomment this to have a manual approval step before deployment to production
               - Name: ManualApproval
@@ -294,7 +294,6 @@ Resources:
                       {"name": "ENV_TEMPLATE", "value": "packaged-prod.yaml"},
                       {"name": "ENV_REGION", "value": "${ProdRegion}"},
                       {"name": "ENV_STACK_NAME", "value": "${ProdStackName}"},
-                      #{"name": "ENV_PIPELINE_EXECUTION_ROLE", "value": "${ProdPipelineExecutionRole}"},
                       {"name": "ENV_PIPELINE_EXECUTION_ROLE", "value": "${TestingPipelineExecutionRole}"},
                       {"name": "ENV_CLOUDFORMATION_EXECUTION_ROLE", "value": "${ProdCloudFormationExecutionExeRole}"},
                       {"name": "ENV_BUCKET", "value": "${ProdArtifactBucket}"},
