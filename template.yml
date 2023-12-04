@@ -62,7 +62,10 @@ Parameters:
       - PriceClass_100
       - PriceClass_200
       - PriceClass_All
-
+  CurrentPrivateVpcEndpoint:
+    Type: String
+    Description: "Current execute api VPC Endpoint"
+    Default: "vpce-066e8510e7d415d6a"
 
 # Resources create conditions
 
@@ -335,11 +338,22 @@ Resources:
     Properties:
       Name: !Sub "${AWS::StackName}-ApiGateway"
       StageName: !Ref MyDeployEnvironment
+      EndpointConfiguration:
+        Type: 'PRIVATE'
+        VpcEndpointIds:
+          - 'vpce-066e8510e7d415d6a'
       Auth:
         Authorizers:
           CognitoAuth:
             UserPoolArn: !GetAtt CognitoDemoUserPool.Arn
- 
+        ResourcePolicy:
+          CustomStatements: {
+              Effect: 'Allow',
+              Action: 'execute-api:Invoke', 
+              Resource: ['execute-api:/*/*/*'],
+              Principal: '*'
+            }
+
 ##########################################################################
 # Template Outputs                                                       #
 ##########################################################################
